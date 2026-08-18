@@ -1,0 +1,26 @@
+{
+  "name": "china-map-navigator",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aurouscia/china-areas": "^0.7.0",
+    "@svg-maps/china": "^2.0.0",
+    "@vitejs/plugin-vue": "latest",
+    "china-province-city-district-geojson": "^1.0.9",
+    "echarts": "latest",
+    "vue": "latest",
+    "vue-router": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "latest",
+    "vitest": "latest",
+    "vue-tsc": "latest"
+  }
+}
