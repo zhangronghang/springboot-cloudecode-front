@@ -14,6 +14,7 @@ export interface Province {
 
 const suffix = /(?:省|市|自治区|特别行政区)$/
 const normalizeName = (name: string) => name.replace(suffix, '')
+const directMunicipalityCodes = new Set(['110000', '120000', '310000', '500000'])
 
 export const provinceDirectory: Province[] = getTopDivisions().map((division) => ({
   code: division.code,
@@ -28,8 +29,14 @@ export const findProvince = (name: string) =>
 export const findCity = (provinceName: string, cityCode: string) =>
   findProvince(provinceName)?.cities.find((city) => city.code === cityCode)
 
+export const findDistrict = (cityCode: string, districtCode: string) =>
+  getDivisionChildren(cityCode).find((district) => district.code === districtCode)
+
 export const canDrillDownToCounty = (divisionCode: string) =>
   divisionCode.endsWith('00') && !isFinalDivision(divisionCode)
+
+export const isDirectMunicipality = (provinceCode: string) =>
+  directMunicipalityCodes.has(provinceCode)
 
 export const provinceMapNames: Record<string, string> = {
   anhui: '安徽', beijing: '北京', chongqing: '重庆', fujian: '福建', gansu: '甘肃',

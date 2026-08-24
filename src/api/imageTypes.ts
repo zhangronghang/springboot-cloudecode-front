@@ -10,7 +10,14 @@ export interface ImageMetadata {
   description?: string
   tags?: string
   uploader?: string
-  createdAt?: string
+  provinceCode?: string | null
+  cityCode?: string | null
+  districtCode?: string | null
+  createTime?: string | null
+  uploadTime?: string | null
+  fileSize?: string | null
+  fileName?: string | null
+  gridFsFileId?: string | null
 }
 
 export interface ImageDetail extends ImageMetadata {
@@ -26,7 +33,10 @@ export interface PaginatedImages<T> {
 
 export interface CityMemory {
   id: string
-  cityCode: string
+  provinceCode: string
+  cityCode?: string
+  districtCode: string
+  districtName: string
   title: string
   feeling: string
   visitedAt: string

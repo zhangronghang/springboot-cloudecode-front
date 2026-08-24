@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { canDrillDownToCounty, findCity } from '../data/china'
+import { canDrillDownToCounty, findCity, findProvince } from '../data/china'
 import { countyMapLoader } from '../data/countyMaps'
 import type { ProvinceGeoMap } from '../data/provinceMaps'
 import { createMapPaths } from '../utils/geoMap'
@@ -12,15 +12,27 @@ const route = useRoute()
 const router = useRouter()
 const provinceName = computed(() => String(route.params.province))
 const cityCode = computed(() => String(route.params.cityCode))
+const province = computed(() => findProvince(provinceName.value))
 const city = computed(() => findCity(provinceName.value, cityCode.value))
 const source = ref<ProvinceGeoMap>()
 const state = ref<'loading' | 'ready' | 'error' | 'invalid'>('loading')
 const retryKey = ref(0)
-const memoryContext = createDivisionContext({ code: cityCode.value, name: city.value?.name ?? '' })
-const selectCounty = (path: { id: string | number; name: string }) => memoryContext.selectCounty({ code: String(path.id), name: path.name })
+const memoryContext = createDivisionContext({
+  provinceCode: province.value?.code ?? '',
+  cityCode: cityCode.value,
+  name: city.value?.name ?? ''
+})
+const selectCounty = (path: { id: string | number; name: string }) => memoryContext.selectDistrict({
+  districtCode: String(path.id),
+  name: path.name
+})
 
-watch([cityCode, city], () => {
-  if (city.value) memoryContext.changeCity({ code: cityCode.value, name: city.value.name })
+watch([province, cityCode, city], () => {
+  if (province.value && city.value) memoryContext.changeCity({
+    provinceCode: province.value.code,
+    cityCode: cityCode.value,
+    name: city.value.name
+  })
 }, { immediate: true })
 
 watch([provinceName, cityCode, retryKey], async (_, __, onCleanup) => {
@@ -66,12 +78,12 @@ const retry = () => { retryKey.value += 1 }
           <button class="retry-button" @click="retry">重新加载</button>
         </div>
         <svg v-else-if="drawing" class="province-city-map county-map" :viewBox="drawing.viewBox" role="group" :aria-label="`${city.name}县级行政区地图`">
-          <path v-for="path in drawing.paths" :key="path.id" class="county-shape" :class="{ 'is-active': memoryContext.current.value.level === 'county' && memoryContext.current.value.code === String(path.id) }" :d="path.d" tabindex="0" role="button" :aria-label="`查看${path.name}足迹`" @click="selectCounty(path)" @keydown.enter="selectCounty(path)" @keydown.space.prevent="selectCounty(path)"><title>{{ path.name }}</title></path>
+          <path v-for="path in drawing.paths" :key="path.id" class="county-shape" :class="{ 'is-active': memoryContext.current.value.level === 'district' && memoryContext.current.value.districtCode === String(path.id) }" :d="path.d" tabindex="0" role="button" :aria-label="`查看${path.name}足迹`" @click="selectCounty(path)" @keydown.enter="selectCounty(path)" @keydown.space.prevent="selectCounty(path)"><title>{{ path.name }}</title></path>
           <text v-for="path in visiblePaths" :key="`label-${path.id}`" class="county-label" :x="path.labelX" :y="path.labelY" :style="{ fontSize: `${path.fontSize}px` }">{{ path.name }}</text>
         </svg>
       </div>
-      <button v-if="memoryContext.current.value.level === 'county'" class="back-link memory-reset" @click="memoryContext.selectCity">查看 {{ city.name }} 足迹</button>
-      <CityMemoryPanel :key="`${memoryContext.current.value.level}-${memoryContext.current.value.code}`" :division="memoryContext.current.value" />
+      <button v-if="memoryContext.current.value.level === 'district'" class="back-link memory-reset" @click="memoryContext.selectCity">查看 {{ city.name }} 足迹</button>
+      <CityMemoryPanel :key="memoryContext.current.value.level === 'city' ? `city-${memoryContext.current.value.cityCode}` : `district-${memoryContext.current.value.districtCode}`" :division="memoryContext.current.value" />
     </template>
     <section v-else class="not-found">
       <h1>当前已到县级</h1>

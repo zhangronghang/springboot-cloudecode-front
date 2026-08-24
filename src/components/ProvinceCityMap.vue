@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watchEffect } from 'vue'
-import { canDrillDownToCounty } from '../data/china'
+import { canDrillDownToCounty, isDirectMunicipality } from '../data/china'
 import { getProvinceMapLoader, type ProvinceGeoMap } from '../data/provinceMaps'
 import { createMapPaths, type MapPath } from '../utils/geoMap'
 
@@ -31,7 +31,8 @@ watchEffect(async () => {
 
 const drawing = computed(() => source.value ? createMapPaths(source.value) : undefined)
 const visiblePaths = computed(() => drawing.value?.paths.filter((path) => path.showLabel) ?? [])
-const canSelect = (path: MapPath) => canDrillDownToCounty(String(path.id))
+const canSelect = (path: MapPath) =>
+  isDirectMunicipality(props.provinceCode) || canDrillDownToCounty(String(path.id))
 const selectCity = (path: MapPath) => {
   if (canSelect(path)) emit('select', { code: String(path.id), name: path.name })
 }

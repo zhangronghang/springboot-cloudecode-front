@@ -1,34 +1,52 @@
 import { ref } from 'vue'
-import type { DivisionScope } from './memoryTags'
+import type { MemoryDivision } from './divisionContext'
 
 type PanelStatus = 'loading' | 'ready' | 'empty' | 'error'
 
 export interface MemoryPageLoader<T> {
-  load(division: string | DivisionScope, page: number, size: number): Promise<{ total: number; page: number; size: number; records: T[] }>
+  load(scope: MemoryDivision, page: number, size: number): Promise<{ total: number; page: number; size: number; records: T[] }>
 }
 
-export const createMemoryPanelState = <T>(loader: MemoryPageLoader<T>, division: string | DivisionScope, pageSize = 10) => {
+export const createMemoryPanelState = <T>(loader: MemoryPageLoader<T>, scope: MemoryDivision, pageSize = 10) => {
   const state = ref<PanelStatus>('loading')
   const records = ref<T[]>([])
   const page = ref(1)
   const total = ref(0)
   const error = ref('')
+  const actionError = ref('')
 
   const load = async (nextPage = page.value) => {
     state.value = 'loading'
     records.value = []
     error.value = ''
+    actionError.value = ''
     try {
-      const result = await loader.load(division, nextPage, pageSize)
+      const result = await loader.load(scope, nextPage, pageSize)
       page.value = result.page
       total.value = result.total
       records.value = result.records
       state.value = result.records.length ? 'ready' : 'empty'
     } catch (cause) {
-      error.value = cause instanceof Error ? cause.message : '无法加载城市足迹。'
+      error.value = cause instanceof Error ? cause.message : '无法加载足迹。'
       state.value = 'error'
     }
   }
 
-  return { state, records, page, total, error, load, retry: () => load(page.value) }
+  const refreshAfterDelete = () => load(page.value > 1 && records.value.length <= 1 ? page.value - 1 : page.value)
+  const reportActionError = (cause: unknown) => {
+    actionError.value = cause instanceof Error ? cause.message : '操作失败，请重试。'
+  }
+
+  return {
+    state,
+    records,
+    page,
+    total,
+    error,
+    actionError,
+    load,
+    retry: () => load(page.value),
+    refreshAfterDelete,
+    reportActionError
+  }
 }

@@ -1,15 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import CityMemoryPanel from '../components/CityMemoryPanel.vue'
 import ProvinceCityMap from '../components/ProvinceCityMap.vue'
-import { findProvince } from '../data/china'
+import { findProvince, isDirectMunicipality } from '../data/china'
+import { createDirectDistrictScope, type DistrictInformationScope } from '../memories/divisionContext'
 import { getCountyRoute } from '../utils/countyNavigation'
 
 const route = useRoute()
 const router = useRouter()
 const province = computed(() => findProvince(String(route.params.name)))
-const openCity = (city: { code: string }) => {
+const selectedDistrict = ref<DistrictInformationScope>()
+watch(() => route.params.name, () => { selectedDistrict.value = undefined })
+
+const openCity = (city: { code: string; name: string }) => {
   if (!province.value) return
+  if (isDirectMunicipality(province.value.code)) {
+    selectedDistrict.value = createDirectDistrictScope({
+      provinceCode: province.value.code,
+      districtCode: city.code,
+      name: city.name
+    })
+    return
+  }
   const target = getCountyRoute(province.value.name, city.code)
   if (target) router.push(target)
 }
@@ -25,6 +38,16 @@ const openCity = (city: { code: string }) => {
         <p>{{ province.fullName }} · {{ province.cities.length }} 个下级行政区</p>
       </header>
       <ProvinceCityMap :province-code="province.code" @select="openCity" />
+      <button
+        v-if="selectedDistrict"
+        class="back-link clear-district-selection"
+        @click="selectedDistrict = undefined"
+      >← 取消区县选择</button>
+      <CityMemoryPanel
+        v-if="selectedDistrict"
+        :key="selectedDistrict.districtCode"
+        :division="selectedDistrict"
+      />
     </template>
     <section v-else class="not-found">
       <h1>未找到该省份</h1>
