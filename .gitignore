@@ -4,3 +4,8 @@ __pycache__/
 *.log
 *.DS_Store
 .worktrees/
+node_modules/
+dist/
+.superpowers/
+*.tsbuildinfo
+vite.config.*.timestamp-*
