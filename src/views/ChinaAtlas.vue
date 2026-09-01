@@ -11,7 +11,7 @@ const openProvince = (name: string) => router.push({ name: 'province', params: {
   <section class="atlas-page">
     <header class="site-header">
       <p class="eyebrow">CHINA · ADMINISTRATIVE ATLAS</p>
-      <h1>中国省市图册</h1>
+      <h1>中国省市图册<span class="title-footprint">足迹</span></h1>
       <p class="intro">从一片土地开始，进入每一座城市。</p>
     </header>
 

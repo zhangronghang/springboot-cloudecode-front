@@ -4,6 +4,18 @@ export interface ApiResponse<T> {
   data: T
 }
 
+export interface PublicImage {
+  imageId: string
+  fileName: string
+  fileSize: number
+  contentType: string
+  width: number
+  height: number
+  createTime: string
+  thumbnailUrl: string
+  originalUrl: string
+}
+
 export interface ImageMetadata {
   id: string
   title: string
@@ -15,13 +27,11 @@ export interface ImageMetadata {
   districtCode?: string | null
   createTime?: string | null
   uploadTime?: string | null
+  imageCount: number
+  coverImage: PublicImage | null
   fileSize?: string | null
   fileName?: string | null
   gridFsFileId?: string | null
-}
-
-export interface ImageDetail extends ImageMetadata {
-  imageBase64: string
 }
 
 export interface PaginatedImages<T> {
@@ -29,6 +39,13 @@ export interface PaginatedImages<T> {
   page: number
   size: number
   records: T[]
+}
+
+export interface ImageBatchDeleteResult {
+  requestedCount: number
+  deletedCount: number
+  ignoredImageIds: string[]
+  remainingCount: number
 }
 
 export interface CityMemory {
@@ -41,6 +58,7 @@ export interface CityMemory {
   feeling: string
   visitedAt: string
   tags: string[]
-  imageBase64?: string
-  imageLoadFailed?: boolean
+  imageCount: number
+  coverImage: PublicImage | null
+  coverLoadFailed?: boolean
 }

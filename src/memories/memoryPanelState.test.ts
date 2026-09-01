@@ -49,6 +49,22 @@ describe('足迹页面状态', () => {
     expect(panel.page.value).toBe(1)
   })
 
+  it('图片变更后从当前页刷新到第一页', async () => {
+    const loader = {
+      load: vi.fn()
+        .mockResolvedValueOnce({ total: 20, page: 2, size: 10, records: [{ id: '11' }] })
+        .mockResolvedValueOnce({ total: 20, page: 1, size: 10, records: [{ id: '20' }] })
+    }
+    const panel = createMemoryPanelState(loader, scope)
+    await panel.load(2)
+
+    await panel.refreshAfterImageChange()
+
+    expect(loader.load).toHaveBeenLastCalledWith(scope, 1, 10)
+    expect(panel.page.value).toBe(1)
+    expect(panel.records.value).toEqual([{ id: '20' }])
+  })
+
   it('写操作失败时保留当前记录和就绪状态', async () => {
     const loader = { load: vi.fn().mockResolvedValue({ total: 1, page: 1, size: 10, records: [{ id: '1' }] }) }
     const panel = createMemoryPanelState(loader, scope)

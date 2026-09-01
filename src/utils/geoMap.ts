@@ -28,6 +28,9 @@ const isPointInRing = ([x, y]: number[], ring: number[][]) => {
 
 const isPointInRings = (point: number[], rings: number[][][]) => rings.reduce((inside, ring) => isPointInRing(point, ring) ? !inside : inside, false)
 
+const normalizePoint = (point: [number, number] | { lng: number; lat: number }) =>
+  Array.isArray(point) ? point : [point.lng, point.lat]
+
 export const createMapPaths = (map: ProvinceGeoMap): { paths: MapPath[]; viewBox: string } => {
   const points = map.features.flatMap((feature) => getRings(feature).flat())
   const longitudes = points.map(([longitude]) => longitude)
@@ -59,7 +62,8 @@ export const createMapPaths = (map: ProvinceGeoMap): { paths: MapPath[]; viewBox
       const yValues = projectedPoints.map(([, y]) => y)
       const shapeWidth = Math.max(...xValues) - Math.min(...xValues)
       const shapeHeight = Math.max(...yValues) - Math.min(...yValues)
-      const preferredPoint = project(feature.properties.centroid ?? feature.properties.center ?? rings[0][0])
+      const preferredSource = feature.properties.centroid ?? feature.properties.center
+      const preferredPoint = project(preferredSource ? normalizePoint(preferredSource) : rings[0][0])
       const projectedRings = rings.map((ring) => ring.map(project))
       const label = createContainedMapLabel({
         id: String(feature.properties.adcode),

@@ -1,12 +1,11 @@
 import type { ImageListInput } from '../api/imageApi'
-import type { CityMemory, ImageDetail, ImageMetadata, PaginatedImages } from '../api/imageTypes'
+import type { CityMemory, ImageMetadata, PaginatedImages } from '../api/imageTypes'
 import { findDistrict } from '../data/china'
 import { createInformationListInput, type MemoryDivision } from './divisionContext'
 import { parseMemoryTags } from './memoryTags'
 
 export interface ImageMemoryApi {
   list(input: ImageListInput): Promise<PaginatedImages<ImageMetadata>>
-  detail(id: string): Promise<ImageDetail>
 }
 
 const resolveDistrictName = (image: ImageMetadata, scope: MemoryDivision) => {
@@ -37,22 +36,43 @@ const toMemory = (image: ImageMetadata, scope: MemoryDivision): CityMemory | und
     title: image.title,
     feeling: image.description ?? '',
     visitedAt: parsed.visitedAt,
-    tags: parsed.tags
+    tags: parsed.tags,
+    imageCount: image.imageCount,
+    coverImage: image.coverImage
   }
 }
 
 export const createCityMemoryLoader = (api: ImageMemoryApi) => ({
   async load(scope: MemoryDivision, page: number, size: number) {
-    const result = await api.list(createInformationListInput(scope, page, size))
-    const memories = result.records.map((image) => toMemory(image, scope)).filter((memory): memory is CityMemory => Boolean(memory))
-    const records = await Promise.all(memories.map(async (memory) => {
-      try {
-        const detail = await api.detail(memory.id)
-        return { ...memory, imageBase64: detail.imageBase64 }
-      } catch {
-        return { ...memory, imageLoadFailed: true }
-      }
+    const currentPage = await api.list(createInformationListInput(scope, page, size))
+    const currentRecords = currentPage.records
+      .map((image) => toMemory(image, scope))
+      .filter((memory): memory is CityMemory => Boolean(memory))
+    if (currentRecords.length === currentPage.records.length) {
+      return { total: currentPage.total, page: currentPage.page, size: currentPage.size, records: currentRecords }
+    }
+
+    const serverPageSize = Math.max(1, currentPage.size || size)
+    const serverPageCount = Math.max(1, Math.ceil(currentPage.total / serverPageSize))
+    const pages = await Promise.all(Array.from({ length: serverPageCount }, (_, index) => {
+      const serverPage = index + 1
+      return serverPage === currentPage.page
+        ? currentPage
+        : api.list(createInformationListInput(scope, serverPage, size))
     }))
-    return { total: result.total, page: result.page, size: result.size, records }
+    const validRecords = pages
+      .flatMap((result) => result.records)
+      .map((image) => toMemory(image, scope))
+      .filter((memory): memory is CityMemory => Boolean(memory))
+    const validPageCount = Math.max(1, Math.ceil(validRecords.length / size))
+    const normalizedPage = Math.min(Math.max(1, page), validPageCount)
+    const start = (normalizedPage - 1) * size
+
+    return {
+      total: validRecords.length,
+      page: normalizedPage,
+      size,
+      records: validRecords.slice(start, start + size)
+    }
   }
 })

@@ -20,7 +20,16 @@ watchEffect(async () => {
   }
   state.value = 'loading'
   try {
-    source.value = await loader()
+    const loadedSource = await loader()
+    const hasChildDivisions = loadedSource.features.some((feature) =>
+      String(feature.properties.adcode) !== props.provinceCode)
+    if (!hasChildDivisions) {
+      source.value = undefined
+      state.value = 'unavailable'
+      emit('unavailable')
+      return
+    }
+    source.value = loadedSource
     state.value = 'ready'
   } catch {
     source.value = undefined
@@ -41,7 +50,7 @@ const selectCity = (path: MapPath) => {
 <template>
   <div class="province-map-frame" :class="`is-${state}`">
     <p v-if="state === 'loading'" class="map-status">正在载入省级地图…</p>
-    <p v-else-if="state === 'unavailable'" class="map-status">该省份的下级行政区地图数据暂不可用。</p>
+    <p v-else-if="state === 'unavailable'" class="map-status">暂时无法获取该区域信息</p>
     <svg v-else-if="drawing" class="province-city-map" :viewBox="drawing.viewBox" role="group" aria-label="省级下级行政区地图">
       <path
         v-for="path in drawing.paths"

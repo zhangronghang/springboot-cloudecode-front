@@ -1,7 +1,13 @@
-import type { ApiResponse, ImageDetail, ImageMetadata, PaginatedImages } from './imageTypes'
+import type {
+  ApiResponse,
+  ImageBatchDeleteResult,
+  ImageMetadata,
+  PaginatedImages,
+  PublicImage
+} from './imageTypes'
 
 export class ImageApiError extends Error {
-  constructor(message: string) {
+  constructor(message: string, public readonly uncertain = false) {
     super(message)
     this.name = 'ImageApiError'
   }
@@ -34,21 +40,44 @@ export interface ImageLocationInput {
   districtCode?: string
 }
 
+export interface InformationImageListInput {
+  informationId: string
+  page: number
+  size: number
+}
+
+export interface InformationImageAddInput {
+  informationId: string
+  file: File
+}
+
+export interface InformationImageDeleteInput {
+  informationId: string
+  imageIds: string[]
+}
+
 const readResponse = async <T>(response: Response): Promise<T> => {
   let payload: ApiResponse<T>
   try {
     payload = await response.json() as ApiResponse<T>
   } catch {
-    throw new ImageApiError('图片服务返回了无法解析的响应。')
+    throw new ImageApiError('图片服务返回了无法解析的响应。', true)
   }
-  if (!response.ok || payload.code !== 200) throw new ImageApiError(payload.message || '图片服务请求失败。')
+  if (!response.ok || payload.code !== 200) {
+    throw new ImageApiError(payload.message || '图片服务请求失败。', response.status >= 500)
+  }
   return payload.data
 }
 
-const createForm = (input: ImageWriteInput & ImageLocationInput, includeId: boolean, includeLocation: boolean) => {
+const createForm = (
+  input: ImageWriteInput & ImageLocationInput,
+  includeId: boolean,
+  includeLocation: boolean,
+  includeFile: boolean
+) => {
   const form = new FormData()
   if (includeId && input.id) form.append('id', input.id)
-  if (input.file) form.append('file', input.file)
+  if (includeFile && input.file) form.append('file', input.file)
   for (const key of ['title', 'description', 'tags', 'uploader'] as const) {
     if (input[key] !== undefined) form.append(key, input[key])
   }
@@ -69,21 +98,35 @@ export const createImageApi = (fetcher: Fetcher = fetch) => ({
     })
     return readResponse<PaginatedImages<ImageMetadata>>(response)
   },
-  async detail(id: string) {
-    const response = await fetcher('/api/information/detail', {
+  async listImages(input: InformationImageListInput) {
+    const response = await fetcher('/api/information/image/list', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
+      body: JSON.stringify(input)
     })
-    const detail = await readResponse<{ imageBase64: string; metadata: ImageMetadata }>(response)
-    return { ...detail.metadata, imageBase64: detail.imageBase64 } as ImageDetail
+    return readResponse<PaginatedImages<PublicImage>>(response)
+  },
+  async addImage(input: InformationImageAddInput) {
+    const form = new FormData()
+    form.append('informationId', input.informationId)
+    form.append('file', input.file)
+    const response = await fetcher('/api/information/image/add', { method: 'POST', body: form })
+    return readResponse<PublicImage>(response)
+  },
+  async deleteImages(input: InformationImageDeleteInput) {
+    const response = await fetcher('/api/information/image/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, imageIds: [...new Set(input.imageIds)] })
+    })
+    return readResponse<ImageBatchDeleteResult>(response)
   },
   async upload(input: ImageWriteInput & ImageLocationInput & { file: File; title: string }) {
-    const response = await fetcher('/api/information/upload', { method: 'POST', body: createForm(input, false, true) })
+    const response = await fetcher('/api/information/upload', { method: 'POST', body: createForm(input, false, true, true) })
     return readResponse<ImageMetadata>(response)
   },
-  async update(input: ImageWriteInput & { id: string }) {
-    const response = await fetcher('/api/information/update', { method: 'POST', body: createForm(input, true, false) })
+  async update(input: Omit<ImageWriteInput, 'file'> & { id: string }) {
+    const response = await fetcher('/api/information/update', { method: 'POST', body: createForm(input, true, false, false) })
     return readResponse<ImageMetadata>(response)
   },
   async delete(id: string) {

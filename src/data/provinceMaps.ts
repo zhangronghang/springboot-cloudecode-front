@@ -1,5 +1,10 @@
 export interface GeoFeature {
-  properties: { adcode: number; name: string; center?: [number, number]; centroid?: [number, number] }
+  properties: {
+    adcode: number
+    name: string
+    center?: [number, number] | { lng: number; lat: number }
+    centroid?: [number, number] | { lng: number; lat: number }
+  }
   geometry: { type: 'Polygon' | 'MultiPolygon'; coordinates: number[][][] | number[][][][] }
 }
 

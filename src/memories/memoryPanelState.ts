@@ -33,6 +33,7 @@ export const createMemoryPanelState = <T>(loader: MemoryPageLoader<T>, scope: Me
   }
 
   const refreshAfterDelete = () => load(page.value > 1 && records.value.length <= 1 ? page.value - 1 : page.value)
+  const refreshAfterImageChange = () => load(1)
   const reportActionError = (cause: unknown) => {
     actionError.value = cause instanceof Error ? cause.message : '操作失败，请重试。'
   }
@@ -47,6 +48,7 @@ export const createMemoryPanelState = <T>(loader: MemoryPageLoader<T>, scope: Me
     load,
     retry: () => load(page.value),
     refreshAfterDelete,
+    refreshAfterImageChange,
     reportActionError
   }
 }

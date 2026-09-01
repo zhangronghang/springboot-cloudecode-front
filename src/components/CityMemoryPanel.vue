@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { imageApi } from '../api/imageApi'
 import type { CityMemory } from '../api/imageTypes'
 import { createCityMemoryLoader } from '../memories/cityMemoryLoader'
 import { createUploadLocation, type MemoryDivision } from '../memories/divisionContext'
-import { validateMemoryForm } from '../memories/memoryForm'
+import { validateImageFile, validateMemoryForm } from '../memories/memoryForm'
 import { createMemoryPanelState } from '../memories/memoryPanelState'
 import { createMemoryTags } from '../memories/memoryTags'
 import { openDatePicker } from '../utils/datePicker'
+import FootprintGalleryModal from './FootprintGalleryModal.vue'
 
 const props = defineProps<{ division: MemoryDivision }>()
 const panel = createMemoryPanelState(createCityMemoryLoader(imageApi), props.division)
@@ -21,6 +22,10 @@ const file = ref<File>()
 const formError = ref('')
 const submitting = ref(false)
 const deletingId = ref<string>()
+const deletingMemory = ref<CityMemory>()
+const galleryMemory = ref<CityMemory>()
+const panelRoot = ref<HTMLElement>()
+const failedCovers = ref<Set<string>>(new Set())
 const pageCount = computed(() => Math.max(1, Math.ceil(panel.total.value / 10)))
 
 const reset = () => {
@@ -58,6 +63,10 @@ const submit = async () => {
     isEditing: Boolean(editing.value)
   })
   if (validationError) { formError.value = validationError; return }
+  if (file.value) {
+    const fileError = validateImageFile(file.value)
+    if (fileError) { formError.value = fileError; return }
+  }
 
   submitting.value = true
   formError.value = ''
@@ -83,11 +92,16 @@ const submit = async () => {
     submitting.value = false
   }
 }
-const remove = async (memory: CityMemory) => {
-  if (!props.division.abilities.delete || !window.confirm(`删除“${memory.title}”吗？此操作无法恢复。`)) return
+const requestRemove = (memory: CityMemory) => {
+  if (props.division.abilities.delete) deletingMemory.value = memory
+}
+const confirmRemove = async () => {
+  const memory = deletingMemory.value
+  if (!memory) return
   deletingId.value = memory.id
   try {
     await imageApi.delete(memory.id)
+    deletingMemory.value = undefined
     await panel.refreshAfterDelete()
   } catch (error) {
     panel.reportActionError(error)
@@ -95,15 +109,32 @@ const remove = async (memory: CityMemory) => {
     deletingId.value = undefined
   }
 }
-const imageSource = (memory: CityMemory) => memory.imageBase64?.startsWith('data:')
-  ? memory.imageBase64
-  : `data:image/*;base64,${memory.imageBase64}`
+const openGallery = (memory: CityMemory) => { galleryMemory.value = memory }
+const closeGallery = async () => {
+  const informationId = galleryMemory.value?.id
+  galleryMemory.value = undefined
+  await nextTick()
+  const replacementTrigger = informationId
+    ? [...(panelRoot.value?.querySelectorAll<HTMLElement>('[data-gallery-trigger-id]') ?? [])]
+        .find((element) => element.dataset.galleryTriggerId === informationId)
+    : undefined
+  const focusTarget = replacementTrigger ?? panelRoot.value
+  focusTarget?.focus()
+  setTimeout(() => focusTarget?.isConnected && focusTarget.focus(), 0)
+}
+const markCoverFailed = (memoryId: string) => {
+  failedCovers.value = new Set(failedCovers.value).add(memoryId)
+}
+const handleGalleryChanged = async () => {
+  failedCovers.value = new Set()
+  await panel.refreshAfterImageChange()
+}
 
 onMounted(() => panel.load())
 </script>
 
 <template>
-  <section class="memory-panel" aria-labelledby="memory-title">
+  <section ref="panelRoot" class="memory-panel" aria-labelledby="memory-title" data-gallery-focus-fallback tabindex="-1">
     <header class="memory-heading">
       <div><p class="eyebrow">TRAVEL NOTES</p><h2 id="memory-title">我的 {{ division.name }} 足迹</h2></div>
       <button v-if="division.abilities.create" class="memory-action" @click="openCreate">上传照片</button>
@@ -118,16 +149,31 @@ onMounted(() => panel.load())
     </div>
     <div v-else class="memory-grid">
       <article v-for="memory in panel.records.value" :key="memory.id" class="memory-card">
-        <img v-if="memory.imageBase64" :src="imageSource(memory)" :alt="memory.title">
-        <div v-else class="memory-photo-placeholder">{{ memory.imageLoadFailed ? '照片暂时无法载入' : '正在载入照片' }}</div>
+        <button class="memory-cover" type="button" :data-gallery-trigger-id="memory.id" :aria-label="`打开 ${memory.title} 图片集`" @click="openGallery(memory)">
+          <img
+            v-if="memory.coverImage && !failedCovers.has(memory.id)"
+            :src="memory.coverImage.thumbnailUrl"
+            :alt="memory.title"
+            @error="markCoverFailed(memory.id)"
+          >
+          <span v-else class="memory-photo-placeholder">
+            {{ failedCovers.has(memory.id) ? '封面加载失败' : memory.imageCount === 0 ? '暂无图片' : '封面暂时无法载入' }}
+          </span>
+          <span class="memory-image-count">{{ memory.imageCount }} 张</span>
+        </button>
         <p v-if="division.level === 'city'" class="memory-district">{{ memory.districtName }}</p>
         <p class="memory-date">{{ memory.visitedAt }}</p>
         <h3>{{ memory.title }}</h3>
         <p>{{ memory.feeling || '未填写感受。' }}</p>
         <p class="memory-tags">{{ memory.tags.join(' · ') }}</p>
         <div>
-          <button v-if="division.abilities.update" :disabled="deletingId === memory.id" @click="openEdit(memory)">编辑</button>
-          <button v-if="division.abilities.delete" :disabled="deletingId === memory.id" @click="remove(memory)">{{ deletingId === memory.id ? '删除中…' : '删除' }}</button>
+          <button v-if="division.abilities.update" aria-label="编辑足迹" :disabled="deletingId === memory.id" @click="openEdit(memory)">编辑</button>
+          <button
+            v-if="division.abilities.delete"
+            aria-label="删除足迹"
+            :disabled="deletingId === memory.id"
+            @click="requestRemove(memory)"
+          >{{ deletingId === memory.id ? '删除中…' : '删除足迹' }}</button>
         </div>
       </article>
     </div>
@@ -138,13 +184,31 @@ onMounted(() => panel.load())
     </nav>
     <form v-if="formOpen" class="memory-form" @submit.prevent="submit">
       <h3>{{ editing ? '编辑足迹' : '留下足迹' }}</h3>
-      <label>照片 <input type="file" accept="image/*" :required="!editing" @change="selectFile"></label>
-      <label>标题 <input v-model="title" required></label>
+      <label v-if="!editing">照片 <input type="file" accept="image/jpeg,image/png" required @change="selectFile"></label>
+      <label>标题 <input v-model="title" required aria-label="足迹标题"></label>
       <label>游玩日期 <input v-model="visitedAt" type="date" required aria-label="选择游玩日期" @click="openDatePicker" @keydown.prevent @paste.prevent></label>
       <label>感受 <textarea v-model="feeling" rows="3"></textarea></label>
       <label>标签（逗号分隔）<input v-model="userTags"></label>
       <p v-if="formError" class="memory-error">{{ formError }}</p>
       <div><button type="button" @click="formOpen = false">取消</button><button class="memory-action" :disabled="submitting" type="submit">{{ submitting ? '保存中…' : '保存足迹' }}</button></div>
     </form>
+    <div v-if="deletingMemory" class="memory-delete-confirm" role="alertdialog" aria-modal="true" aria-labelledby="memory-delete-title">
+      <h3 id="memory-delete-title">删除足迹“{{ deletingMemory.title }}”</h3>
+      <p>这会删除整条足迹及其 {{ deletingMemory.imageCount }} 张图片，操作不可恢复。</p>
+      <div>
+        <button type="button" aria-label="取消删除足迹" :disabled="deletingId === deletingMemory.id" @click="deletingMemory = undefined">取消</button>
+        <button type="button" aria-label="确认删除足迹" :disabled="deletingId === deletingMemory.id" @click="confirmRemove">
+          {{ deletingId === deletingMemory.id ? '删除中…' : '确认删除足迹' }}
+        </button>
+      </div>
+    </div>
+    <FootprintGalleryModal
+      v-if="galleryMemory"
+      :information-id="galleryMemory.id"
+      :title="galleryMemory.title"
+      :api="imageApi"
+      @close="closeGallery"
+      @changed="handleGalleryChanged"
+    />
   </section>
 </template>
