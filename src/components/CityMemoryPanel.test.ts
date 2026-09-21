@@ -56,7 +56,11 @@ const fileWithSize = (name: string, type: string, size: number) => {
 }
 
 const mountPanel = async (division: MemoryDivision = cityScope) => {
-  const wrapper = mount(CityMemoryPanel, { attachTo: document.body, props: { division } })
+  const wrapper = mount(CityMemoryPanel, {
+    attachTo: document.body,
+    props: { division },
+    global: { stubs: { Teleport: true } }
+  })
   await flushPromises()
   return wrapper
 }

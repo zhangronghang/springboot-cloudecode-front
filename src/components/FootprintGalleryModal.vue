@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ImageGalleryApi } from '../memories/imageGalleryState'
 import { createImageGalleryState, IMAGE_GALLERY_PAGE_SIZE } from '../memories/imageGalleryState'
+import { trapTab } from '../modal/useModalDialog'
 
 const props = defineProps<{
   informationId: string
@@ -91,26 +92,6 @@ const confirmDelete = async () => {
 
 const requestClose = () => {
   if (!busy.value && !deleteConfirmOpen.value) emit('close')
-}
-
-const trapTab = (event: KeyboardEvent, container: HTMLElement) => {
-  const focusable = [...container.querySelectorAll<HTMLElement>(
-    'button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
-  )].filter((element) => !element.hasAttribute('hidden'))
-  if (!focusable.length) {
-    event.preventDefault()
-    container.focus()
-    return
-  }
-  const first = focusable[0]!
-  const last = focusable[focusable.length - 1]!
-  if (event.shiftKey && (document.activeElement === first || document.activeElement === container)) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
 }
 
 const handleKeydown = (event: KeyboardEvent) => {
