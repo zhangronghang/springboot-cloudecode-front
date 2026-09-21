@@ -93,8 +93,11 @@ onMounted(async () => {
         @keydown.enter="emit('select', '台湾')"
         @keydown.space.prevent="emit('select', '台湾')"
       ><title>台湾</title></path>
+      <text v-if="taiwanPath" class="province-label taiwan-inset-label" aria-hidden="true">
+        <tspan x="590" y="380">台</tspan>
+        <tspan x="480" y="620">湾</tspan>
+      </text>
     </svg>
-    <span class="taiwan-inset-label" aria-hidden="true">台湾</span>
     <div class="map-tip" aria-live="polite">{{ activeName ? `进入 ${activeName}` : '点击任一省份探索城市' }}</div>
   </div>
 </template>

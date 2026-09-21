@@ -69,7 +69,7 @@ describe('普通省市区县信息数据流', () => {
     await flushPromises()
 
     expect(imageApi.list).toHaveBeenLastCalledWith({ page: 1, size: 10, districtCode: '513422' })
-    expect(wrapper.get('.memory-heading .memory-action').text()).toBe('上传照片')
+    expect(wrapper.get('.memory-heading .memory-action').text()).toBe('创建足迹')
   })
 })
 
@@ -100,7 +100,7 @@ describe('直辖市区县信息数据流', () => {
     await flushPromises()
 
     expect(imageApi.list).toHaveBeenCalledWith({ page: 1, size: 10, districtCode: '110101' })
-    expect(wrapper.get('.memory-heading .memory-action').text()).toBe('上传照片')
+    expect(wrapper.get('.memory-heading .memory-action').text()).toBe('创建足迹')
     expect(countyMapLoader.load).not.toHaveBeenCalled()
   })
 
