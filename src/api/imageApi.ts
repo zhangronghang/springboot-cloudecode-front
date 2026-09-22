@@ -1,5 +1,6 @@
 import type {
   ApiResponse,
+  CityStatistics,
   ImageBatchDeleteResult,
   ImageMetadata,
   PaginatedImages,
@@ -38,6 +39,10 @@ export interface ImageLocationInput {
   provinceCode?: string
   cityCode?: string
   districtCode?: string
+}
+
+export interface StatisticsInput {
+  cityCode: string
 }
 
 export interface InformationImageListInput {
@@ -136,6 +141,14 @@ export const createImageApi = (fetcher: Fetcher = fetch) => ({
       body: JSON.stringify({ id })
     })
     return readResponse<null>(response)
+  },
+  async statistics(input: StatisticsInput) {
+    const response = await fetcher('/api/information/statistics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input)
+    })
+    return readResponse<CityStatistics>(response)
   }
 })
 

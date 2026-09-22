@@ -164,4 +164,47 @@ describe('图片服务客户端', () => {
       file: new File(['photo'], 'photo.jpg', { type: 'image/jpeg' })
     })).rejects.toMatchObject({ name: 'ImageApiError', uncertain: true })
   })
+
+  it('按市级编码请求统计分析结果', async () => {
+    const statistics = {
+      footprintCount: 3,
+      imageCount: 5,
+      districts: [{
+        provinceCode: '510000', cityCode: '513400', districtCode: '513422',
+        footprintCount: 2, imageCount: 4, lastVisitedAt: '2026-09-02'
+      }],
+      months: [{ month: '2026-08', footprintCount: 2 }, { month: '2026-09', footprintCount: 1 }],
+      tags: [{ tag: '风景', count: 2 }]
+    }
+    const fetcher = vi.fn().mockResolvedValue(success(statistics))
+    const api = createImageApi(fetcher)
+
+    await expect(api.statistics({ cityCode: '513400' })).resolves.toEqual(statistics)
+    expect(fetcher).toHaveBeenCalledWith('/api/information/statistics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cityCode: '513400' })
+    })
+  })
+
+  it('统计接口在业务状态非 200 时抛出错误', async () => {
+    const api = createImageApi(vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ code: 400, message: '市级行政区划代码不能为空', data: null }), { status: 200 })
+    ))
+
+    await expect(api.statistics({ cityCode: '' })).rejects.toMatchObject({
+      name: 'ImageApiError',
+      message: '市级行政区划代码不能为空',
+      uncertain: false
+    })
+  })
+
+  it('统计接口在响应体不可解析时抛出不确定错误', async () => {
+    const api = createImageApi(vi.fn().mockResolvedValue(new Response('<html>502</html>', { status: 502 })))
+
+    await expect(api.statistics({ cityCode: '513400' })).rejects.toMatchObject({
+      name: 'ImageApiError',
+      uncertain: true
+    })
+  })
 })

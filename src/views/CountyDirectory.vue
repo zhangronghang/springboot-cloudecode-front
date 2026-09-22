@@ -6,6 +6,7 @@ import { countyMapLoader } from '../data/countyMaps'
 import type { ProvinceGeoMap } from '../data/provinceMaps'
 import { createMapPaths } from '../utils/geoMap'
 import CityMemoryPanel from '../components/CityMemoryPanel.vue'
+import CityStatisticsDrawer from '../components/CityStatisticsDrawer.vue'
 import { createDivisionContext } from '../memories/divisionContext'
 
 const route = useRoute()
@@ -17,6 +18,7 @@ const city = computed(() => findCity(provinceName.value, cityCode.value))
 const source = ref<ProvinceGeoMap>()
 const state = ref<'loading' | 'ready' | 'error' | 'invalid'>('loading')
 const retryKey = ref(0)
+const statisticsOpen = ref(false)
 const memoryContext = createDivisionContext({
   provinceCode: province.value?.code ?? '',
   cityCode: cityCode.value,
@@ -56,6 +58,14 @@ watch([provinceName, cityCode, retryKey], async (_, __, onCleanup) => {
 const drawing = computed(() => source.value ? createMapPaths(source.value) : undefined)
 const visiblePaths = computed(() => drawing.value?.paths.filter((path) => path.showLabel) ?? [])
 const retry = () => { retryKey.value += 1 }
+
+const selectDistrictFromStatistics = (districtCode: string) => {
+  statisticsOpen.value = false
+  const path = drawing.value?.paths.find((candidate) => String(candidate.id) === districtCode)
+  if (path) selectCounty({ id: path.id, name: path.name })
+}
+
+watch([provinceName, cityCode], () => { statisticsOpen.value = false })
 </script>
 
 <template>
@@ -72,6 +82,19 @@ const retry = () => { retryKey.value += 1 }
         <p>区县级行政区地图</p>
       </header>
       <div class="province-map-frame county-map-frame" :class="`is-${state}`">
+        <button
+          class="statistics-toggle"
+          type="button"
+          :aria-label="`查看${city.name}足迹统计`"
+          :aria-expanded="statisticsOpen"
+          @click="statisticsOpen = !statisticsOpen"
+        >
+          <svg class="statistics-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <rect x="3" y="10" width="3" height="7" />
+            <rect x="8.5" y="6" width="3" height="11" />
+            <rect x="14" y="2" width="3" height="15" />
+          </svg>
+        </button>
         <p v-if="state === 'loading'" class="map-status" aria-live="polite">正在载入县级地图…</p>
         <div v-else-if="state === 'error'" class="map-status" role="status">
           <p>县级地图数据暂不可用。</p>
@@ -82,6 +105,13 @@ const retry = () => { retryKey.value += 1 }
           <text v-for="path in visiblePaths" :key="`label-${path.id}`" class="county-label" :x="path.labelX" :y="path.labelY" :style="{ fontSize: `${path.fontSize}px` }">{{ path.name }}</text>
         </svg>
       </div>
+      <CityStatisticsDrawer
+        v-if="statisticsOpen"
+        :city-code="cityCode"
+        :city-name="city.name"
+        @close="statisticsOpen = false"
+        @select="selectDistrictFromStatistics"
+      />
       <button v-if="memoryContext.current.value.level === 'district'" class="back-link memory-reset" @click="memoryContext.selectCity">查看 {{ city.name }} 足迹</button>
       <CityMemoryPanel :key="memoryContext.current.value.level === 'city' ? `city-${memoryContext.current.value.cityCode}` : `district-${memoryContext.current.value.districtCode}`" :division="memoryContext.current.value" />
     </template>

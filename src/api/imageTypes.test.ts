@@ -2,10 +2,14 @@ import { describe, expectTypeOf, it } from 'vitest'
 import type {
   ApiResponse,
   CityMemory,
+  CityStatistics,
+  DistrictStatistics,
   ImageBatchDeleteResult,
   ImageMetadata,
+  MonthStatistics,
   PaginatedImages,
-  PublicImage
+  PublicImage,
+  TagStatistics
 } from './imageTypes'
 
 describe('图片服务类型', () => {
@@ -54,5 +58,25 @@ describe('图片服务类型', () => {
       ignoredImageIds: string[]
       remainingCount: number
     }>()
+  })
+
+  it('描述市级足迹统计响应', () => {
+    expectTypeOf<CityStatistics>().toMatchTypeOf<{
+      footprintCount: number
+      imageCount: number
+      districts: DistrictStatistics[]
+      months: MonthStatistics[]
+      tags: TagStatistics[]
+    }>()
+    expectTypeOf<DistrictStatistics>().toMatchTypeOf<{
+      provinceCode: string
+      cityCode: string
+      districtCode: string
+      footprintCount: number
+      imageCount: number
+      lastVisitedAt: string
+    }>()
+    expectTypeOf<MonthStatistics>().toMatchTypeOf<{ month: string; footprintCount: number }>()
+    expectTypeOf<TagStatistics>().toMatchTypeOf<{ tag: string; count: number }>()
   })
 })

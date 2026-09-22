@@ -48,6 +48,33 @@ export interface ImageBatchDeleteResult {
   remainingCount: number
 }
 
+export interface DistrictStatistics {
+  provinceCode: string
+  cityCode: string
+  districtCode: string
+  footprintCount: number
+  imageCount: number
+  lastVisitedAt: string
+}
+
+export interface MonthStatistics {
+  month: string
+  footprintCount: number
+}
+
+export interface TagStatistics {
+  tag: string
+  count: number
+}
+
+export interface CityStatistics {
+  footprintCount: number
+  imageCount: number
+  districts: DistrictStatistics[]
+  months: MonthStatistics[]
+  tags: TagStatistics[]
+}
+
 export interface CityMemory {
   id: string
   provinceCode: string
